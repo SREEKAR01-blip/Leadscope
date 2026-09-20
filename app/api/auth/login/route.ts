@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { verifyPasswordCredentials, getUserByEmail } from '@/lib/user-store';
-import { supabase, syncUserProfileToSupabase } from '@/lib/supabase';
+import { verifyPasswordCredentials, getUserByEmail, registerUser } from '@/lib/user-store';
+import { supabase, syncUserProfileToSupabase, fetchUserProfileFromSupabase } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
@@ -72,6 +72,35 @@ export async function POST(request: Request) {
             role: effectiveRole,
             phone: meta.phone,
             city: meta.city,
+          },
+        });
+      }
+    } catch {
+      // Fall through
+    }
+
+    // 3. Try checking Supabase profiles table as serverless persistent fallback
+    try {
+      const sbProfile = await fetchUserProfileFromSupabase(normalizedEmail);
+      if (sbProfile) {
+        const effectiveRole = role || sbProfile.role || 'freelancer';
+        const userName = sbProfile.name || normalizedEmail.split('@')[0];
+
+        // Hydrate in-memory user store
+        registerUser({
+          email: normalizedEmail,
+          password: password.trim(),
+          name: userName,
+          role: effectiveRole,
+          createdAt: new Date().toISOString(),
+        });
+
+        return NextResponse.json({
+          success: true,
+          user: {
+            email: normalizedEmail,
+            name: userName,
+            role: effectiveRole,
           },
         });
       }

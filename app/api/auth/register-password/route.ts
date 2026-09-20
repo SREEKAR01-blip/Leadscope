@@ -47,6 +47,7 @@ export async function POST(request: Request) {
         email: normalizedEmail,
         name: registeredUser.name,
         role: registeredUser.role,
+        password: password.trim(),
       });
     } catch (sbErr: any) {
       console.warn('[Supabase Auth Password Signup Notice]:', sbErr?.message || sbErr);

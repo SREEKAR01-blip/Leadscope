@@ -41,19 +41,20 @@ export type Profile = {
   created_at?: string;
 };
 
-export async function syncUserProfileToSupabase(user: { email: string; name: string; role: string }) {
+export async function syncUserProfileToSupabase(user: { email: string; name: string; role: string; password?: string }) {
   try {
     const email = user.email.trim().toLowerCase();
+    const payload: Record<string, any> = {
+      email,
+      name: user.name,
+      role: user.role,
+    };
+    if (user.password) {
+      payload.password = user.password;
+    }
     const { data, error } = await supabase
       .from('profiles')
-      .upsert(
-        {
-          email,
-          name: user.name,
-          role: user.role,
-        },
-        { onConflict: 'email' }
-      )
+      .upsert(payload, { onConflict: 'email' })
       .select();
 
     if (error) {

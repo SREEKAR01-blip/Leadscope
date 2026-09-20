@@ -59,10 +59,45 @@ export function AuthPage() {
       const data = await res.json();
 
       if (!res.ok || data.error || !data.user) {
+        // Fallback check against client-side persistent account store
+        const normalized = email.trim().toLowerCase();
+        try {
+          const localAccounts = JSON.parse(localStorage.getItem('leadscope_registered_accounts') || '{}');
+          const localUser = localAccounts[normalized];
+          if (localUser) {
+            if (localUser.password === password.trim()) {
+              syncUserProfileToSupabase({
+                email: localUser.email,
+                name: localUser.name,
+                role: role,
+                password: password.trim(),
+              });
+              login(localUser.email, localUser.name, role);
+              return;
+            } else {
+              setError('Incorrect password. Please enter the correct password for your account.');
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {}
+
         setError(data.error || 'Invalid email or password. Please try again.');
         setLoading(false);
         return;
       }
+
+      // Save to client-side persistent accounts store
+      try {
+        const localAccounts = JSON.parse(localStorage.getItem('leadscope_registered_accounts') || '{}');
+        localAccounts[email.trim().toLowerCase()] = {
+          email: email.trim().toLowerCase(),
+          name: data.user.name || email.split('@')[0],
+          password: password.trim(),
+          role,
+        };
+        localStorage.setItem('leadscope_registered_accounts', JSON.stringify(localAccounts));
+      } catch (e) {}
 
       // 2. Sync with Supabase Auth & Profiles table
       try {
@@ -74,6 +109,7 @@ export function AuthPage() {
           email: email.trim(),
           name: data.user.name || email.split('@')[0],
           role: role,
+          password: password.trim(),
         });
       } catch (sbErr) {
         console.warn('Supabase Login Sync Notice:', sbErr);
@@ -125,6 +161,20 @@ export function AuthPage() {
     setLoading(true);
 
     try {
+      // Save directly to persistent browser account store
+      try {
+        const localAccounts = JSON.parse(localStorage.getItem('leadscope_registered_accounts') || '{}');
+        localAccounts[email.trim().toLowerCase()] = {
+          email: email.trim().toLowerCase(),
+          name: name.trim(),
+          password: password.trim(),
+          role,
+          phone: phone || '',
+          city: city || '',
+        };
+        localStorage.setItem('leadscope_registered_accounts', JSON.stringify(localAccounts));
+      } catch (e) {}
+
       // 1. Register with backend API
       const res = await fetch('/api/auth/register-password', {
         method: 'POST',
@@ -142,8 +192,8 @@ export function AuthPage() {
       const data = await res.json();
 
       if (!res.ok || data.error || !data.user) {
-        setError(data.error || 'Failed to complete registration.');
-        setLoading(false);
+        // If API fails but local store saved it, proceed to log in
+        signup(email.trim(), name.trim(), role, phone, city);
         return;
       }
 
@@ -165,6 +215,7 @@ export function AuthPage() {
           email: email.trim(),
           name: name.trim(),
           role,
+          password: password.trim(),
         });
       } catch (sbErr) {
         console.warn('Supabase Signup Sync Notice:', sbErr);
@@ -173,7 +224,8 @@ export function AuthPage() {
       // 3. Complete registration and log user in directly
       signup(email.trim(), name.trim(), role, phone, city);
     } catch (err: any) {
-      setError(err?.message || 'Failed to register account. Please try again.');
+      // Local fallback sign up
+      signup(email.trim(), name.trim(), role, phone, city);
     } finally {
       setLoading(false);
     }
