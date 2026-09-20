@@ -15,6 +15,7 @@ import {
   AlertCircle,
   TrendingDown,
   Sparkles,
+  ExternalLink,
 } from 'lucide-react';
 import { useApp, type ExtendedLead } from '@/lib/app-context';
 import { cn } from '@/lib/utils';
@@ -137,12 +138,13 @@ export function ProfileDialog({ lead, onClose, onAddToPipeline }: Props) {
                 <div className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
                   <Globe className="h-4 w-4 text-blue-500" />
                   <a
-                    href={lead.website}
+                    href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-blue-600 font-medium hover:underline flex items-center gap-1 truncate"
                   >
-                    {lead.website.replace(/^https?:\/\//, '')}
+                    <span>{lead.website.replace(/^https?:\/\//, '')}</span>
+                    <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
               )}

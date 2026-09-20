@@ -316,24 +316,34 @@ export function PitchGeneratorModal({ lead, onClose }: Props) {
           <div className="space-y-4">
             {/* Subject Line */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Subject Line
-              </label>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-sm font-medium text-slate-900">{emailContent.subject}</p>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">
+                  Subject Line
+                </label>
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">Editable</span>
               </div>
+              <input
+                type="text"
+                value={emailContent.subject}
+                onChange={(e) => setEmailContent({ ...emailContent, subject: e.target.value })}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
             </div>
 
             {/* Email Body */}
             <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Email Body
-              </label>
-              <div className="max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">
-                  {emailContent.body}
-                </pre>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block text-sm font-medium text-slate-700">
+                  Email Body
+                </label>
+                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">Editable</span>
               </div>
+              <textarea
+                value={emailContent.body}
+                onChange={(e) => setEmailContent({ ...emailContent, body: e.target.value })}
+                rows={10}
+                className="w-full resize-y rounded-xl border border-slate-300 bg-slate-50 p-4 font-sans text-sm leading-relaxed text-slate-800 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
             </div>
           </div>
 

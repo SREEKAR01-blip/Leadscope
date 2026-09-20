@@ -1,30 +1,36 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, Sparkles, Send, Copy, Check, Loader2, Wand2 } from 'lucide-react';
+import { FileText, Sparkles, Send, Copy, Check, Loader2, Wand2, Pencil } from 'lucide-react';
 import { useApp } from '@/lib/app-context';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export function ProposalGeneratorView() {
-  const { leads, projects, updateLeadStatus, setCurrentView } = useApp();
+  const { leads, projects, updateLeadStatus, setCurrentView, settings, user } = useApp();
   const [selectedLead, setSelectedLead] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('');
   const [tone, setTone] = useState<'professional' | 'friendly' | 'persuasive'>('professional');
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const lead = leads.find((l) => l.id === selectedLead);
   const project = projects.find((p) => p.id === selectedProject);
 
+  const senderName = settings.user_name || user?.name || 'Srikar';
+
   const handleGenerate = () => {
     if (!lead || !project) return;
     setGenerating(true);
     setGenerated(null);
+    setIsEditing(false);
+
     setTimeout(() => {
       const proposal = `Hi ${lead.name} Team,
 
-I came across ${lead.name} while scanning ${lead.city} for businesses that could benefit from a stronger digital presence. With a digital score of ${lead.digital_score}/100 and ${lead.review_count?.toLocaleString() ?? '0'} reviews on Google, there's a clear opportunity to ${!lead.website ? 'establish your online presence with a professional website' : 'optimize your existing digital footprint'}.
+I came across ${lead.name} while scanning ${lead.city} for local businesses that could benefit from a stronger digital presence. With a digital score of ${lead.digital_score}/100 and ${lead.review_count?.toLocaleString() ?? '0'} reviews on Google, there's a clear opportunity to ${!lead.website ? 'establish your online presence with a professional website' : 'optimize your existing digital footprint'}.
 
 Project: ${project.title}
 Budget: $${project.budget_min.toLocaleString()} – $${project.budget_max.toLocaleString()}
@@ -45,7 +51,7 @@ Investment: $${Math.round((project.budget_min + project.budget_max) / 2).toLocal
 I'd love to discuss this further. Are you available for a quick call this week?
 
 Best regards,
-${'Jordan Davis'}`;
+${senderName}`;
 
       setGenerated(proposal);
       setGenerating(false);
@@ -56,18 +62,19 @@ ${'Jordan Davis'}`;
     if (!generated) return;
     navigator.clipboard.writeText(generated);
     setCopied(true);
+    toast.success('Proposal copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSend = () => {
     if (!lead) return;
     updateLeadStatus(lead.id, 'proposal');
-    alert(`Proposal successfully sent to ${lead.name}! The lead has been moved to the 'Proposal Sent' stage in your CRM.`);
+    toast.success(`Proposal successfully sent to ${lead.name}!`);
     setCurrentView('leads');
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto select-none">
       <div className="mx-auto max-w-5xl space-y-6 p-6">
         {/* Header */}
         <div className="flex items-center gap-3">
@@ -82,7 +89,7 @@ ${'Jordan Davis'}`;
 
         <div className="grid gap-6 lg:grid-cols-[1fr_1.5fr]">
           {/* Config panel */}
-          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div>
               <label className="mb-1.5 block text-sm font-semibold text-slate-800">Select Lead</label>
               <select
@@ -151,22 +158,34 @@ ${'Jordan Davis'}`;
             <button
               onClick={handleGenerate}
               disabled={!selectedLead || !selectedProject || generating}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:opacity-40"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-600 disabled:opacity-40 shadow-xs"
             >
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-              {generating ? 'Generating...' : 'Generate Proposal'}
+              {generating ? 'Generating Proposal...' : 'Generate Proposal'}
             </button>
           </div>
 
           {/* Output panel */}
-          <div className="flex min-h-[400px] flex-col rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="flex min-h-[440px] flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-blue-500" />
                 <h3 className="text-sm font-semibold text-slate-800">Generated Proposal</h3>
               </div>
               {generated && (
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                      isEditing
+                        ? 'border-blue-500 bg-blue-50 text-blue-600'
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                    )}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    {isEditing ? 'Done Editing' : 'Edit Proposal'}
+                  </button>
                   <button
                     onClick={handleCopy}
                     className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
@@ -176,7 +195,7 @@ ${'Jordan Davis'}`;
                   </button>
                   <button
                     onClick={handleSend}
-                    className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600"
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600 shadow-xs"
                   >
                     <Send className="h-3.5 w-3.5" />
                     Send
@@ -188,16 +207,38 @@ ${'Jordan Davis'}`;
             {generating ? (
               <div className="flex flex-1 flex-col items-center justify-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                <p className="text-sm text-slate-500">Crafting your proposal...</p>
+                <p className="text-sm text-slate-500">Crafting your custom proposal...</p>
               </div>
             ) : generated ? (
-              <div className="flex-1 overflow-y-auto">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{generated}</pre>
-              </div>
+              isEditing ? (
+                <div className="flex-1 flex flex-col">
+                  <div className="mb-2 flex items-center justify-between text-[11px] font-medium text-blue-600">
+                    <span>✏️ You are editing the proposal below. Changes apply automatically to Copy & Send:</span>
+                  </div>
+                  <textarea
+                    value={generated}
+                    onChange={(e) => setGenerated(e.target.value)}
+                    rows={16}
+                    className="w-full flex-1 min-h-[380px] p-3.5 text-sm font-sans leading-relaxed text-slate-900 bg-slate-50/70 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-y"
+                    placeholder="Edit your generated proposal text here..."
+                  />
+                </div>
+              ) : (
+                <div
+                  onClick={() => setIsEditing(true)}
+                  className="group relative flex-1 cursor-pointer overflow-y-auto rounded-xl p-3.5 hover:bg-slate-50/80 transition-colors border border-transparent hover:border-slate-200"
+                  title="Click anywhere to edit this proposal"
+                >
+                  <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-600 border border-blue-200">
+                    <Pencil className="h-3 w-3" /> Click to Edit
+                  </div>
+                  <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{generated}</pre>
+                </div>
+              )
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                 <FileText className="h-10 w-10 text-slate-200" />
-                <p className="text-sm text-slate-400">Select a lead and project, then generate.</p>
+                <p className="text-sm text-slate-400">Select a lead and project, then click Generate Proposal.</p>
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Lead } from './supabase';
+import { supabase, syncUserProfileToSupabase, fetchUserProfileFromSupabase, type Lead } from './supabase';
 import {
   SEED_FREELANCERS,
   SEED_PROJECTS,
@@ -181,6 +181,7 @@ type AppContextType = {
 
   // Global data — Marketplace
   freelancers: FreelancerProfile[];
+  updateFreelancerProfile: (id: string, updated: Partial<FreelancerProfile>) => void;
   projects: Project[];
   bids: Bid[];
   proposals: Proposal[];
@@ -191,7 +192,18 @@ type AppContextType = {
   disputes: Dispute[];
   systemLogs: SystemLog[];
   reels: ReelItem[];
+  addReel: (reel: ReelItem) => void;
+  deleteReel: (id: string) => void;
   packages: ServicePackage[];
+
+  // Business Owner Actions
+  claimBusiness: (leadId: string | null, businessDetails: { name: string; gstNumber?: string; domain?: string; phone?: string; email?: string; address?: string; city?: string }) => void;
+  hireFreelancer: (freelancerName: string, projectTitle: string, amount: number, milestones?: number) => void;
+  acceptProposal: (proposalId: string) => void;
+  rejectProposal: (proposalId: string) => void;
+  releaseEscrowMilestone: (contractId: string) => void;
+  updateJobApplicationStatus: (applicationId: string, status: 'Pending' | 'Viewed' | 'Shortlisted' | 'Interview' | 'Accepted' | 'Rejected') => void;
+  sendDirectMessage: (recipientName: string, text: string, channel?: 'direct' | 'project' | 'support') => void;
 
   // Settings
   settings: Settings;
@@ -377,6 +389,7 @@ const SAVED_JOBS_STORAGE_KEY = 'leadscope_saved_jobs';
 const PROFILE_STORAGE_KEY = 'leadscope_seeker_profile';
 const SEEKER_NOTIFICATIONS_STORAGE_KEY = 'leadscope_seeker_notifications';
 const SEEKER_MESSAGES_STORAGE_KEY = 'leadscope_seeker_messages';
+const FREELANCERS_STORAGE_KEY = 'leadscope_freelancers';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
@@ -387,18 +400,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [searchedLocation, setSearchedLocation] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
-  const [freelancers] = useState<FreelancerProfile[]>(SEED_FREELANCERS);
+  const [freelancers, setFreelancers] = useState<FreelancerProfile[]>(() => {
+    return SEED_FREELANCERS.map((f, idx) =>
+      idx === 0 ? { ...f, name: defaultSettings.user_name } : f
+    );
+  });
+
+  const updateFreelancerProfile = useCallback((id: string, updated: Partial<FreelancerProfile>) => {
+    setFreelancers((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, ...updated } : f))
+    );
+    if (updated.name) {
+      setSettings((s) => ({ ...s, user_name: updated.name! }));
+    }
+  }, []);
   const [projects] = useState<Project[]>(SEED_PROJECTS);
   const [bids] = useState<Bid[]>(SEED_BIDS);
-  const [proposals] = useState<Proposal[]>(SEED_PROPOSALS);
-  const [escrowContracts] = useState<EscrowContract[]>(SEED_ESCROW);
-  const [messages] = useState<Message[]>(SEED_MESSAGES);
+  const [proposals, setProposals] = useState<Proposal[]>(SEED_PROPOSALS);
+  const [escrowContracts, setEscrowContracts] = useState<EscrowContract[]>(SEED_ESCROW);
+  const [messages, setMessages] = useState<Message[]>(SEED_MESSAGES);
   const [notifications] = useState<Notification[]>(SEED_NOTIFICATIONS);
-  const [verifications] = useState<VerificationRequest[]>(SEED_VERIFICATIONS);
+  const [verifications, setVerifications] = useState<VerificationRequest[]>(SEED_VERIFICATIONS);
   const [disputes] = useState<Dispute[]>(SEED_DISPUTES);
   const [systemLogs] = useState<SystemLog[]>(SEED_LOGS);
-  const [reels] = useState<ReelItem[]>(SEED_REELS);
+  const [reels, setReels] = useState<ReelItem[]>(SEED_REELS);
   const [packages] = useState<ServicePackage[]>(SEED_PACKAGES);
+
+  const addReel = useCallback((reel: ReelItem) => {
+    setReels((prev) => [reel, ...prev]);
+  }, []);
+
+  const deleteReel = useCallback((id: string) => {
+    setReels((prev) => prev.filter((r) => r.id !== id));
+  }, []);
 
   // Job Seeker State
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -410,6 +444,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Load persisted state on mount
   useEffect(() => {
+    // Check initial Supabase Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {};
+        const userRole = (meta.role as Role) || 'freelancer';
+        const userName = meta.full_name || session.user.email?.split('@')[0] || 'User';
+        const newUser: User = {
+          email: session.user.email || '',
+          name: userName,
+          role: userRole,
+        };
+        setUser(newUser);
+        setRoleState(userRole);
+      }
+    }).catch(() => {});
+
+    // Listen to Supabase Auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const meta = session.user.user_metadata || {};
+        const userRole = (meta.role as Role) || 'freelancer';
+        const userName = meta.full_name || session.user.email?.split('@')[0] || 'User';
+        const newUser: User = {
+          email: session.user.email || '',
+          name: userName,
+          role: userRole,
+        };
+        setUser(newUser);
+        setRoleState(userRole);
+      }
+    });
+
     // Load User
     const storedUser = localStorage.getItem(USER_STORAGE_KEY);
     if (storedUser) {
@@ -498,8 +564,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try { setSeekerMessages(JSON.parse(storedMsgs)); } catch {}
     }
 
+    const storedFreelancers = localStorage.getItem(FREELANCERS_STORAGE_KEY);
+    if (storedFreelancers) {
+      try {
+        const parsed = JSON.parse(storedFreelancers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setFreelancers(parsed);
+        }
+      } catch {}
+    }
+
     setSearchedLocation(null);
   }, []);
+
+  // Persist freelancers
+  useEffect(() => {
+    if (freelancers.length > 0) {
+      localStorage.setItem(FREELANCERS_STORAGE_KEY, JSON.stringify(freelancers));
+    }
+  }, [freelancers]);
 
   // Persist leads
   useEffect(() => {
@@ -520,6 +603,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
   }, []);
+
+  // Sync dark mode class on html element
+  useEffect(() => {
+    if (settings.dark_mode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.dark_mode]);
 
   // Persist settings
   useEffect(() => {
@@ -563,6 +655,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
     localStorage.setItem(ROLE_STORAGE_KEY, role);
     
+    // Sync profile with Supabase DB
+    syncUserProfileToSupabase({ email, name, role });
+
     if (role === 'job_seeker') {
       setSeekerProfile((prev) => ({
         ...prev,
@@ -594,6 +689,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
     localStorage.setItem(ROLE_STORAGE_KEY, role);
     
+    // Sync profile with Supabase DB
+    syncUserProfileToSupabase({ email, name, role });
+
     if (role === 'job_seeker') {
       setSeekerProfile((prev) => ({
         ...prev,
@@ -615,7 +713,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore network errors on logout
+    }
     setUser(null);
     localStorage.removeItem(USER_STORAGE_KEY);
     localStorage.removeItem(ROLE_STORAGE_KEY);
@@ -643,6 +746,146 @@ export function AppProvider({ children }: { children: ReactNode }) {
       prev.map((l) => (l.id === id ? { ...l, notes } : l))
     );
   }, []);
+
+  const claimBusiness = useCallback((leadId: string | null, businessDetails: { name: string; gstNumber?: string; domain?: string; phone?: string; email?: string; address?: string; city?: string }) => {
+    setLeads((prev) => {
+      const existingIndex = leadId ? prev.findIndex((l) => l.id === leadId) : -1;
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          name: businessDetails.name || updated[existingIndex].name,
+          website: businessDetails.domain ? (businessDetails.domain.startsWith('http') ? businessDetails.domain : `https://${businessDetails.domain}`) : updated[existingIndex].website,
+          phone: businessDetails.phone || updated[existingIndex].phone,
+          email: businessDetails.email || updated[existingIndex].email,
+          address: businessDetails.address || updated[existingIndex].address,
+          city: businessDetails.city || updated[existingIndex].city,
+          digital_score: Math.max(updated[existingIndex].digital_score, 88),
+          outreach_status: 'won',
+        };
+        return updated;
+      } else {
+        const newLead: ExtendedLead = {
+          id: `lead-claimed-${Date.now()}`,
+          name: businessDetails.name,
+          category: 'Verified Business',
+          address: businessDetails.address || 'Business District',
+          city: businessDetails.city || 'Hyderabad',
+          phone: businessDetails.phone || '+91 99887 76655',
+          email: businessDetails.email || user?.email || 'owner@business.com',
+          website: businessDetails.domain ? (businessDetails.domain.startsWith('http') ? businessDetails.domain : `https://${businessDetails.domain}`) : 'https://mybusiness.com',
+          rating: 4.8,
+          review_count: 15,
+          digital_score: 92,
+          latitude: 17.43,
+          longitude: 78.40,
+          image_url: null,
+          place_id: null,
+          created_at: new Date().toISOString(),
+          outreach_status: 'won',
+        };
+        return [newLead, ...prev];
+      }
+    });
+
+    const newVerif: VerificationRequest = {
+      id: `ver-${Date.now()}`,
+      business_name: businessDetails.name,
+      category: 'Verified Business',
+      submitted_at: new Date().toISOString(),
+      status: 'approved',
+      documents_count: 2,
+    };
+    setVerifications((prev) => [newVerif, ...prev]);
+
+    if (user?.email) {
+      syncUserProfileToSupabase({
+        email: user.email,
+        name: businessDetails.name || user.name,
+        role: 'business_owner',
+      });
+    }
+  }, [user]);
+
+  const hireFreelancer = useCallback((freelancerName: string, projectTitle: string, amount: number, milestones: number = 2) => {
+    const newContract: EscrowContract = {
+      id: `escrow-${Date.now()}`,
+      project_title: projectTitle,
+      freelancer_name: freelancerName,
+      business_name: user?.name || 'My Business',
+      amount,
+      status: 'funded',
+      funded_at: new Date().toISOString(),
+      milestone_current: 0,
+      milestone_total: milestones,
+    };
+    setEscrowContracts((prev) => [newContract, ...prev]);
+  }, [user?.name]);
+
+  const acceptProposal = useCallback((proposalId: string) => {
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, status: 'accepted' as const } : p))
+    );
+    const prop = proposals.find((p) => p.id === proposalId);
+    if (prop) {
+      const newContract: EscrowContract = {
+        id: `escrow-prop-${Date.now()}`,
+        project_title: prop.scope.slice(0, 40) || 'Project Contract',
+        freelancer_name: prop.freelancer_name,
+        business_name: prop.business_name || user?.name || 'My Business',
+        amount: prop.amount,
+        status: 'in_progress',
+        funded_at: new Date().toISOString(),
+        milestone_current: 1,
+        milestone_total: 2,
+      };
+      setEscrowContracts((prev) => [newContract, ...prev]);
+    }
+  }, [proposals, user?.name]);
+
+  const rejectProposal = useCallback((proposalId: string) => {
+    setProposals((prev) =>
+      prev.map((p) => (p.id === proposalId ? { ...p, status: 'rejected' as const } : p))
+    );
+  }, []);
+
+  const releaseEscrowMilestone = useCallback((contractId: string) => {
+    setEscrowContracts((prev) =>
+      prev.map((e) => {
+        if (e.id === contractId) {
+          const nextMilestone = Math.min(e.milestone_current + 1, e.milestone_total);
+          const isFinished = nextMilestone >= e.milestone_total;
+          return {
+            ...e,
+            milestone_current: nextMilestone,
+            status: isFinished ? ('released' as const) : ('in_progress' as const),
+          };
+        }
+        return e;
+      })
+    );
+  }, []);
+
+  const updateJobApplicationStatus = useCallback((applicationId: string, status: 'Pending' | 'Viewed' | 'Shortlisted' | 'Interview' | 'Accepted' | 'Rejected') => {
+    setApplications((prev) =>
+      prev.map((app) => (app.id === applicationId ? { ...app, status } : app))
+    );
+  }, []);
+
+  const sendDirectMessage = useCallback((recipientName: string, body: string, channel: 'direct' | 'project' | 'support' = 'direct') => {
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      sender_name: user?.name || 'Me',
+      sender_role: (role as any) || 'business_owner',
+      recipient_name: recipientName,
+      preview: body.slice(0, 40),
+      body,
+      sent_at: new Date().toISOString(),
+      read: true,
+      channel,
+    };
+    setMessages((prev) => [newMsg, ...prev]);
+  }, [user?.name, role]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
@@ -821,6 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateLeadStatus,
         updateLeadNotes,
         freelancers,
+        updateFreelancerProfile,
         projects,
         bids,
         proposals,
@@ -831,6 +1075,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         disputes,
         systemLogs,
         reels,
+        addReel,
+        deleteReel,
         packages,
         settings,
         updateSettings,
@@ -848,6 +1094,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         seekerProfile,
         seekerNotifications,
         seekerMessages,
+        claimBusiness,
+        hireFreelancer,
+        acceptProposal,
+        rejectProposal,
+        releaseEscrowMilestone,
+        updateJobApplicationStatus,
+        sendDirectMessage,
         postJob,
         applyToJob,
         withdrawApplication,

@@ -558,9 +558,11 @@ export type ReelItem = {
   subtitle: string;
   description: string;
   tags: string[];
-  // For video items
+  // For uploaded media & video items
   duration?: string;
   views?: number;
+  mediaUrl?: string;
+  mediaType?: 'video' | 'image';
   // For website mockups
   client?: string;
   year?: string;

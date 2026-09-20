@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Lock, User, Store, Wrench, ShieldCheck, ArrowRight, Loader2, Briefcase, MapPin } from 'lucide-react';
+import { Mail, Lock, User, Store, Wrench, ArrowRight, Loader2, Briefcase, MapPin, CheckCircle2, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 import { useApp, type Role } from '@/lib/app-context';
 import { cn } from '@/lib/utils';
 import { LogoFull } from '@/components/ui/logo';
+import { supabase, syncUserProfileToSupabase } from '@/lib/supabase';
 
 export function AuthPage() {
   const { login, signup } = useApp();
@@ -12,91 +13,195 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Flow control: 'auth' | 'forgot' | 'verify'
-  const [flow, setFlow] = useState<'auth' | 'forgot' | 'verify'>('auth');
+  // Flow control: 'auth' (Sign In or Sign Up) | 'forgot' (Password reset)
+  const [flow, setFlow] = useState<'auth' | 'forgot'>('auth');
 
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<Role>('freelancer');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
 
-  // Forgot password & Verification states
+  // Forgot password & status states
   const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotStatus, setForgotStatus] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  /**
+   * User Login with Email, Password & Role
+   */
+  const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!email || !password || (isSignUp && !name)) {
-      setError('Please fill in all required fields.');
+    setStatusMessage('');
+
+    if (!email || !password) {
+      setError('Please enter both your email address and password.');
       return;
     }
 
-    if (isSignUp && role === 'job_seeker' && (!phone || !city)) {
+    setLoading(true);
+
+    try {
+      // 1. Authenticate with backend API
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          role,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error || !data.user) {
+        setError(data.error || 'Invalid email or password. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Sync with Supabase Auth & Profiles table
+      try {
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: password.trim(),
+        });
+        await syncUserProfileToSupabase({
+          email: email.trim(),
+          name: data.user.name || email.split('@')[0],
+          role: role,
+        });
+      } catch (sbErr) {
+        console.warn('Supabase Login Sync Notice:', sbErr);
+      }
+
+      // 3. Login user into app context
+      const userObj = data.user;
+      login(userObj.email, userObj.name || email.split('@')[0], role);
+    } catch (err: any) {
+      setError(err?.message || 'Authentication failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Direct User Sign Up with Name, Email, Password & Role (No OTP code required!)
+   */
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setStatusMessage('');
+
+    if (!name.trim()) {
+      setError('Please enter your full name.');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+
+    if (!password) {
+      setError('Please create a password for your account.');
+      return;
+    }
+
+    if (password.length < 4) {
+      setError('Password must be at least 4 characters long.');
+      return;
+    }
+
+    if (role === 'job_seeker' && (!phone || !city)) {
       setError('Phone number and current city are required for Job Seekers.');
       return;
     }
 
     setLoading(true);
 
-    // Simulate network delay for a premium loading effect
-    setTimeout(() => {
-      try {
-        if (isSignUp) {
-          // Bypass email verification screen and register instantly
-          signup(email, name, role, phone, city);
-        } else {
-          // Mock name derivation for login if not registered
-          const mockName = email.split('@')[0].replace(/[^a-zA-Z]/g, ' ');
-          const formattedName = mockName.charAt(0).toUpperCase() + mockName.slice(1);
-          // Set role based on typical email hint or fallback to freelancer
-          let detectedRole: Role = 'freelancer';
-          if (email.includes('admin')) detectedRole = 'admin';
-          else if (email.includes('owner') || email.includes('business')) detectedRole = 'business_owner';
-          else if (email.includes('seeker') || email.includes('job')) detectedRole = 'job_seeker';
-          
-          login(email, formattedName, detectedRole);
-        }
-      } catch (err: any) {
-        setError(err.message || 'An error occurred during authentication.');
-        setLoading(false);
-      }
-    }, 1200);
-  };
+    try {
+      // 1. Register with backend API
+      const res = await fetch('/api/auth/register-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+          name: name.trim(),
+          role,
+          phone: phone || undefined,
+          city: city || undefined,
+        }),
+      });
 
-  const handleVerify = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verificationCode) {
-      setError('Please enter the verification code.');
-      return;
+      const data = await res.json();
+
+      if (!res.ok || data.error || !data.user) {
+        setError(data.error || 'Failed to complete registration.');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Sync with Supabase Auth & Profiles table
+      try {
+        await supabase.auth.signUp({
+          email: email.trim(),
+          password: password.trim(),
+          options: {
+            data: {
+              full_name: name.trim(),
+              role: role,
+              phone: phone || undefined,
+              city: city || undefined,
+            },
+          },
+        });
+        await syncUserProfileToSupabase({
+          email: email.trim(),
+          name: name.trim(),
+          role,
+        });
+      } catch (sbErr) {
+        console.warn('Supabase Signup Sync Notice:', sbErr);
+      }
+
+      // 3. Complete registration and log user in directly
+      signup(email.trim(), name.trim(), role, phone, city);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to register account. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(true);
-    setTimeout(() => {
-      try {
-        signup(email, name, role, phone, city);
-      } catch (err: any) {
-        setError(err.message || 'Verification failed.');
-        setLoading(false);
-      }
-    }, 1000);
   };
 
-  const handleForgot = (e: React.FormEvent) => {
+  /**
+   * Password Reset Request
+   */
+  const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail) {
-      setError('Please enter your email.');
+      setError('Please enter your email address.');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
+    setError('');
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail);
+      if (resetErr) {
+        setError(resetErr.message);
+      } else {
+        setStatusMessage('A password reset link has been sent to your email address.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send reset link.');
+    } finally {
       setLoading(false);
-      setForgotStatus('A password reset link has been sent to your email.');
-    }, 1000);
+    }
   };
 
   return (
@@ -132,62 +237,200 @@ export function AuthPage() {
               <div className="flex border-b border-slate-800 bg-slate-950/40">
                 <button
                   type="button"
-                  onClick={() => { setIsSignUp(false); setError(''); }}
+                  onClick={() => { setIsSignUp(false); setError(''); setStatusMessage(''); }}
                   className={cn(
-                    'flex-1 py-4 text-center text-sm font-semibold transition-colors duration-200',
+                    'flex-1 py-4 text-center text-sm font-semibold transition-colors duration-200 flex items-center justify-center gap-2',
                     !isSignUp ? 'bg-slate-900/40 text-blue-400 border-b-2 border-blue-500' : 'text-slate-400 hover:text-slate-200'
                   )}
                 >
-                  Sign In
+                  <LogIn className="h-4 w-4" />
+                  <span>Sign In</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setIsSignUp(true); setError(''); }}
+                  onClick={() => { setIsSignUp(true); setError(''); setStatusMessage(''); }}
                   className={cn(
-                    'flex-1 py-4 text-center text-sm font-semibold transition-colors duration-200',
+                    'flex-1 py-4 text-center text-sm font-semibold transition-colors duration-200 flex items-center justify-center gap-2',
                     isSignUp ? 'bg-slate-900/40 text-blue-400 border-b-2 border-blue-500' : 'text-slate-400 hover:text-slate-200'
                   )}
                 >
-                  Create Account
+                  <UserPlus className="h-4 w-4" />
+                  <span>Create Account</span>
                 </button>
               </div>
 
               <div className="p-6 sm:p-8">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {error && (
-                    <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3.5 text-xs font-medium text-red-400">
-                      {error}
-                    </div>
-                  )}
+                {/* Error & Status Alerts */}
+                {error && (
+                  <div className="mb-5 rounded-lg border border-red-500/20 bg-red-500/10 p-3.5 text-xs font-medium text-red-400">
+                    {error}
+                  </div>
+                )}
+                {statusMessage && (
+                  <div className="mb-5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-medium text-emerald-400 flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <span>{statusMessage}</span>
+                  </div>
+                )}
 
-                  <div className="space-y-4">
-                    {/* Name field (Sign Up only) */}
-                    {isSignUp && (
-                      <div>
-                        <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                          Full Name
-                        </label>
-                        <div className="relative">
-                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                            <User className="h-4 w-4 text-slate-500" />
-                          </div>
-                          <input
-                            id="name"
-                            type="text"
-                            required
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="John Doe"
-                            className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
+                {/* Role Selection Component (Rendered for both Sign In and Sign Up) */}
+                <div className="mb-5">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    Select Account Role
+                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <button
+                      type="button"
+                      onClick={() => setRole('freelancer')}
+                      className={cn(
+                        'flex flex-col items-center justify-center rounded-xl border p-3.5 text-center transition-all duration-200',
+                        role === 'freelancer'
+                          ? 'border-blue-500 bg-blue-500/10 text-blue-400 shadow-md ring-1 ring-blue-500'
+                          : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      )}
+                    >
+                      <Wrench className="mb-1.5 h-5 w-5" />
+                      <span className="text-xs font-bold">Freelancer</span>
+                      <span className="mt-0.5 text-[9px] text-slate-500 leading-tight">Find local leads</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRole('business_owner')}
+                      className={cn(
+                        'flex flex-col items-center justify-center rounded-xl border p-3.5 text-center transition-all duration-200',
+                        role === 'business_owner'
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-md ring-1 ring-emerald-500'
+                          : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      )}
+                    >
+                      <Store className="mb-1.5 h-5 w-5" />
+                      <span className="text-xs font-bold">Business Owner</span>
+                      <span className="mt-0.5 text-[9px] text-slate-500 leading-tight">Claim & hire talent</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRole('job_seeker')}
+                      className={cn(
+                        'flex flex-col items-center justify-center rounded-xl border p-3.5 text-center transition-all duration-200',
+                        role === 'job_seeker'
+                          ? 'border-purple-500 bg-purple-500/10 text-purple-400 shadow-md ring-1 ring-purple-500'
+                          : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      )}
+                    >
+                      <Briefcase className="mb-1.5 h-5 w-5" />
+                      <span className="text-xs font-bold">Job Seeker</span>
+                      <span className="mt-0.5 text-[9px] text-slate-500 leading-tight">Find local jobs</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* --- TAB 1: SIGN IN FORM --- */}
+                {!isSignUp ? (
+                  <form onSubmit={handlePasswordLogin} className="space-y-4">
+                    {/* Email field */}
+                    <div>
+                      <label htmlFor="loginEmail" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Email Address (Gmail)
+                      </label>
+                      <div className="relative">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <Mail className="h-4 w-4 text-slate-500" />
                         </div>
+                        <input
+                          id="loginEmail"
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@gmail.com"
+                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
                       </div>
-                    )}
+                    </div>
+
+                    {/* Password field */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label htmlFor="loginPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                          Password
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setFlow('forgot')}
+                          className="text-xs font-medium text-blue-400 hover:text-blue-300 hover:underline"
+                        >
+                          Forgot password?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <Lock className="h-4 w-4 text-slate-500" />
+                        </div>
+                        <input
+                          id="loginPassword"
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-10 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Sign In Button */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="group relative flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3.5 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 disabled:opacity-60 shadow-lg shadow-blue-600/20 mt-6"
+                    >
+                      {loading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <span>Sign In</span>
+                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                ) : (
+                  /* --- TAB 2: SIGN UP FORM --- */
+                  <form onSubmit={handleSignUp} className="space-y-4">
+                    {/* Full Name field */}
+                    <div>
+                      <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                        Full Name
+                      </label>
+                      <div className="relative">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <User className="h-4 w-4 text-slate-500" />
+                        </div>
+                        <input
+                          id="name"
+                          type="text"
+                          required
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="John Doe"
+                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
 
                     {/* Email field */}
                     <div>
                       <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                        Email Address
+                        Email Address (Gmail)
                       </label>
                       <div className="relative">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -199,29 +442,15 @@ export function AuthPage() {
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          placeholder="you@example.com"
+                          placeholder="you@gmail.com"
                           className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
-                      {!isSignUp && (
-                        <div className="flex justify-between items-center mt-1.5">
-                          <p className="text-[11px] text-slate-500">
-                            Tip: Use "seeker@corp.com" for Seeker, "owner@corp.com" for Business.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => { setFlow('forgot'); setError(''); setForgotStatus(''); }}
-                            className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 hover:underline"
-                          >
-                            Forgot Password?
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* Password field */}
                     <div>
-                      <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                      <label htmlFor="signupPassword" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                         Password
                       </label>
                       <div className="relative">
@@ -229,20 +458,28 @@ export function AuthPage() {
                           <Lock className="h-4 w-4 text-slate-500" />
                         </div>
                         <input
-                          id="password"
-                          type="password"
+                          id="signupPassword"
+                          type={showPassword ? 'text' : 'password'}
                           required
+                          minLength={4}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="At least 4 characters"
+                          className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 pl-10 pr-10 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-200"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
                       </div>
                     </div>
 
                     {/* Job Seeker specific fields */}
-                    {isSignUp && role === 'job_seeker' && (
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {role === 'job_seeker' && (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-1">
                         <div>
                           <label htmlFor="phone" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                             Phone Number
@@ -279,96 +516,36 @@ export function AuthPage() {
                       </div>
                     )}
 
-                    {/* Role selection tiles (Sign Up only) */}
-                    {isSignUp && (
-                      <div className="pt-2">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-                          Assign Account Role (Single Assignment Only)
-                        </label>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                          {/* Freelancer Tile */}
-                          <button
-                            type="button"
-                            onClick={() => setRole('freelancer')}
-                            className={cn(
-                              'flex flex-col items-center justify-center rounded-xl border p-4 text-center transition-all duration-200',
-                              role === 'freelancer'
-                                ? 'border-blue-500 bg-blue-500/10 text-blue-400 shadow-md'
-                                : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                            )}
-                          >
-                            <Wrench className="mb-2 h-5 w-5" />
-                            <span className="text-xs font-bold">Freelancer</span>
-                            <span className="mt-1 text-[9px] text-slate-500 leading-tight">Find local leads</span>
-                          </button>
-
-                          {/* Business Owner Tile */}
-                          <button
-                            type="button"
-                            onClick={() => setRole('business_owner')}
-                            className={cn(
-                              'flex flex-col items-center justify-center rounded-xl border p-4 text-center transition-all duration-200',
-                              role === 'business_owner'
-                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-md'
-                                : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                            )}
-                          >
-                            <Store className="mb-2 h-5 w-5" />
-                            <span className="text-xs font-bold">Business Owner</span>
-                            <span className="mt-1 text-[9px] text-slate-500 leading-tight">Claim & hire talent</span>
-                          </button>
-
-                          {/* Job Seeker Tile */}
-                          <button
-                            type="button"
-                            onClick={() => setRole('job_seeker')}
-                            className={cn(
-                              'flex flex-col items-center justify-center rounded-xl border p-4 text-center transition-all duration-200',
-                              role === 'job_seeker'
-                                ? 'border-purple-500 bg-purple-500/10 text-purple-400 shadow-md'
-                                : 'border-slate-800 bg-slate-950/30 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                            )}
-                          >
-                            <Briefcase className="mb-2 h-5 w-5" />
-                            <span className="text-xs font-bold">Job Seeker</span>
-                            <span className="mt-1 text-[9px] text-slate-500 leading-tight">Find local jobs</span>
-                          </button>
-                        </div>
-                        <p className="mt-2.5 text-[10px] text-center text-slate-500 italic">
-                          Note: Your role cannot be changed without signing out.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Submit button */}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="group relative flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 disabled:opacity-60 shadow-lg shadow-blue-600/20"
-                  >
-                    {loading ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    ) : (
-                      <>
-                        <span className="mr-1">{isSignUp ? 'Create Account' : 'Sign In'}</span>
-                        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                      </>
-                    )}
-                  </button>
-                </form>
+                    {/* Sign Up Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="group relative flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 py-3.5 text-sm font-semibold text-white transition-all hover:from-blue-500 hover:to-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 disabled:opacity-60 shadow-lg shadow-blue-600/20 mt-6"
+                    >
+                      {loading ? (
+                        <Loader2 className="h-5 w-5 animate-spin text-white" />
+                      ) : (
+                        <>
+                          <span>Create Account</span>
+                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                )}
               </div>
             </>
           )}
 
+          {/* --- FORGOT PASSWORD FLOW --- */}
           {flow === 'forgot' && (
             <div className="p-6 sm:p-8">
               <h3 className="text-lg font-bold text-white mb-2">Forgot Password</h3>
-              <p className="text-xs text-slate-400 mb-6">Enter your email address and we'll send you a link to reset your password.</p>
+              <p className="text-xs text-slate-400 mb-6">Enter your email address and we will send you a link to reset your password.</p>
               
               <form onSubmit={handleForgot} className="space-y-4">
                 {error && <div className="rounded-lg bg-red-500/10 p-3 text-xs font-medium text-red-400">{error}</div>}
-                {forgotStatus && <div className="rounded-lg bg-green-500/10 p-3 text-xs font-medium text-green-400">{forgotStatus}</div>}
+                {statusMessage && <div className="rounded-lg bg-emerald-500/10 p-3 text-xs font-medium text-emerald-400">{statusMessage}</div>}
 
                 <div>
                   <label htmlFor="forgotEmail" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
@@ -380,7 +557,7 @@ export function AuthPage() {
                     required
                     value={forgotEmail}
                     onChange={(e) => setForgotEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder="you@gmail.com"
                     className="block w-full rounded-xl border border-slate-800 bg-slate-950/60 py-2.5 px-3 text-sm text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -395,55 +572,10 @@ export function AuthPage() {
 
                 <button
                   type="button"
-                  onClick={() => { setFlow('auth'); setError(''); }}
+                  onClick={() => { setFlow('auth'); setError(''); setStatusMessage(''); }}
                   className="w-full text-center text-xs text-slate-400 hover:text-white mt-4 font-semibold"
                 >
                   Back to Sign In
-                </button>
-              </form>
-            </div>
-          )}
-
-          {flow === 'verify' && (
-            <div className="p-6 sm:p-8">
-              <h3 className="text-lg font-bold text-white mb-2">Email Verification</h3>
-              <p className="text-xs text-slate-400 mb-6">
-                A verification code has been sent to <span className="font-semibold text-blue-400">{email}</span>. Please enter the 4-digit code below (Tip: enter <span className="font-semibold">1234</span>).
-              </p>
-
-              <form onSubmit={handleVerify} className="space-y-4">
-                {error && <div className="rounded-lg bg-red-500/10 p-3 text-xs font-medium text-red-400">{error}</div>}
-
-                <div>
-                  <label htmlFor="verifyCode" className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                    Verification Code
-                  </label>
-                  <input
-                    id="verifyCode"
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="1234"
-                    className="block w-full text-center tracking-widest text-lg rounded-xl border border-slate-800 bg-slate-950/60 py-3 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors"
-                >
-                  {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto text-white" /> : 'Verify & Sign Up'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => { setFlow('auth'); setError(''); }}
-                  className="w-full text-center text-xs text-slate-400 hover:text-white mt-4 font-semibold"
-                >
-                  Back
                 </button>
               </form>
             </div>

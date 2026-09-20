@@ -86,24 +86,11 @@ function MatchCard({ project, freelancer, rank }: { project: Project; freelancer
   const score = useMemo(() => calculateMatchScore(project, freelancer), [project, freelancer]);
   const [locked, setLocked] = useState(false);
 
-  const rankConfig = {
-    1: { color: 'text-amber-500', bg: 'bg-amber-50', label: 'Best Match', icon: Award },
-    2: { color: 'text-slate-500', bg: 'bg-slate-50', label: 'Great Fit', icon: Star },
-    3: { color: 'text-orange-500', bg: 'bg-orange-50', label: 'Good Option', icon: Target },
-  };
-  const cfg = rankConfig[rank as 1 | 2 | 3];
-  const RankIcon = cfg.icon;
-
   return (
-    <div className={cn(
-      'relative overflow-hidden rounded-xl border-2 bg-white p-4 transition-all',
-      rank === 1 ? 'border-amber-300 shadow-md' : 'border-slate-200 hover:shadow-sm'
-    )}>
-      {rank === 1 && (
-        <div className="absolute right-0 top-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
-          Top Match
-        </div>
-      )}
+    <div className="relative overflow-hidden rounded-xl border-2 border-amber-300 bg-white p-4 transition-all shadow-md">
+      <div className="absolute right-0 top-0 rounded-bl-xl bg-gradient-to-r from-amber-400 to-orange-400 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-white">
+        Portfolio Match
+      </div>
       <div className="flex items-start gap-3">
         <div className="relative">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 text-sm font-semibold text-white">
@@ -127,8 +114,8 @@ function MatchCard({ project, freelancer, rank }: { project: Project; freelancer
         </div>
         {/* AI Match Score */}
         <div className="flex flex-col items-center">
-          <div className={cn('flex h-12 w-12 items-center justify-center rounded-full', cfg.bg)}>
-            <span className={cn('text-sm font-bold', cfg.color)}>{score}</span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
+            <span className="text-sm font-bold text-amber-500">{score}</span>
           </div>
           <span className="mt-1 text-[10px] font-medium text-slate-400">Match</span>
         </div>
@@ -181,13 +168,8 @@ function ProjectCard({
 }) {
   const [showMatches, setShowMatches] = useState(false);
 
-  // Calculate top 3 matches
-  const topMatches = useMemo(() => {
-    return freelancers
-      .map((f) => ({ freelancer: f, score: calculateMatchScore(project, f) }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-  }, [project, freelancers]);
+  // Portfolio freelancer match (only show the portfolio freelancer)
+  const portfolioFreelancer = freelancers[0];
 
   const statusColors = {
     open: 'bg-green-50 text-green-600',
@@ -229,7 +211,7 @@ function ProjectCard({
           className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-600"
         >
           <Sparkles className="h-3.5 w-3.5" />
-          AI Matches
+          AI Match
         </button>
       </div>
 
@@ -241,14 +223,14 @@ function ProjectCard({
               <Zap className="h-4 w-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">AI Matchmaking — Top 3 Freelancers</p>
-              <p className="text-[11px] text-slate-500">Ranked by skills alignment, rating, and experience</p>
+              <p className="text-sm font-semibold text-slate-900">AI Matchmaking — Portfolio Freelancer Profile</p>
+              <p className="text-[11px] text-slate-500">Ranked by skills alignment, rating, and portfolio experience</p>
             </div>
           </div>
           <div className="space-y-2.5">
-            {topMatches.map((match, i) => (
-              <MatchCard key={match.freelancer.id} project={project} freelancer={match.freelancer} rank={i + 1} />
-            ))}
+            {portfolioFreelancer && (
+              <MatchCard project={project} freelancer={portfolioFreelancer} rank={1} />
+            )}
           </div>
           {/* Lead Ownership Protection */}
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">

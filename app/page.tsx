@@ -54,6 +54,17 @@ function Dashboard({ scanning, progress, stepText, selectedId, setSelectedId, on
     let mounted = true;
     async function load() {
       try {
+        const res = await fetch('/api/places?query=Hyderabad');
+        if (res.ok) {
+          const businesses = await res.json();
+          if (Array.isArray(businesses) && businesses.length > 0) {
+            setLeads(businesses.map((l) => ({ ...l, outreach_status: 'new' as const })));
+            setSearchedLocation('Hyderabad');
+            if (mounted) setLoading(false);
+            return;
+          }
+        }
+
         const { data } = await supabase
           .from('leads')
           .select('*')
@@ -61,27 +72,13 @@ function Dashboard({ scanning, progress, stepText, selectedId, setSelectedId, on
         if (!mounted) return;
         if (data && data.length > 0) {
           setLeads(data.map((l) => ({ ...l, outreach_status: 'new' as const })));
-          setSearchedLocation('India');
+          setSearchedLocation('Hyderabad');
         } else {
-          const res = await fetch('/api/places?query=India');
-          if (res.ok) {
-            const businesses = await res.json();
-            if (Array.isArray(businesses)) {
-              setLeads(businesses.map((l) => ({ ...l, outreach_status: 'new' as const })));
-            }
-          }
-          setSearchedLocation('India');
+          setSearchedLocation('Hyderabad');
         }
       } catch (err) {
         if (!mounted) return;
-        const res = await fetch('/api/places?query=India').catch(() => null);
-        if (res && res.ok) {
-          const businesses = await res.json();
-          if (Array.isArray(businesses)) {
-            setLeads(businesses.map((l) => ({ ...l, outreach_status: 'new' as const })));
-          }
-        }
-        setSearchedLocation('India');
+        setSearchedLocation('Hyderabad');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -212,31 +209,18 @@ function AppContent() {
         searchCategory = inMatch[1].trim();
         searchLocation = inMatch[2].trim();
       } else {
-        const region = findRegion(q);
-        if (region) {
-          searchLocation = q;
-        } else {
+        const isCategory = Object.keys(categoryKeywords).some((key) => q.includes(key));
+        if (isCategory) {
           searchCategory = q;
+        } else {
+          searchLocation = q;
         }
       }
 
-      const matchedCategoryKey = Object.keys(categoryKeywords).find(
-        (key) => searchCategory.includes(key) || key.includes(searchCategory)
-      );
-      const targetCategory = matchedCategoryKey ? categoryKeywords[matchedCategoryKey as keyof typeof categoryKeywords] : '';
+      const displayLoc = searchLocation ? searchLocation.charAt(0).toUpperCase() + searchLocation.slice(1) : searchedLocation || 'Hyderabad';
+      setSearchedLocation(displayLoc);
 
-      const finalLocation = searchLocation || searchedLocation || 'India';
-      setSearchedLocation(finalLocation);
-
-      // Construct dynamic Google Places search query
-      let apiQuery = '';
-      if (searchCategory && searchLocation) {
-        apiQuery = `${searchCategory} in ${searchLocation}`;
-      } else if (searchCategory) {
-        apiQuery = `${searchCategory} in ${finalLocation}`;
-      } else {
-        apiQuery = `local businesses in ${finalLocation}`;
-      }
+      const apiQuery = query.trim();
 
       // Run fetch and scan progress concurrently for smooth UX flow
       const fetchPromise = fetch(`/api/places?query=${encodeURIComponent(apiQuery)}`)
@@ -278,9 +262,13 @@ function AppContent() {
             setCurrentView('job-search');
           } else {
             setLeads(data.map((l) => ({ ...l, outreach_status: 'new' as const })));
+            setCurrentView('dashboard');
           }
         } else {
-          if (role !== 'job_seeker') setLeads([]);
+          if (role !== 'job_seeker') {
+            setLeads([]);
+            setCurrentView('dashboard');
+          }
         }
         setSelectedId(null);
       });

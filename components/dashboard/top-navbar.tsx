@@ -113,7 +113,7 @@ type Props = {
 };
 
 export function TopNavbar({ onSearch, scanning = false, scanStepText = '' }: Props) {
-  const { currentView, setCurrentView, role, user, logout, leads } = useApp();
+  const { currentView, setCurrentView, role, user, logout, leads, settings, freelancers } = useApp();
   const [searchValue, setSearchValue] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -125,6 +125,10 @@ export function TopNavbar({ onSearch, scanning = false, scanStepText = '' }: Pro
   const config = ROLE_CONFIG[role];
   const navItems = config.nav;
   const newLeadsCount = leads.filter((l) => l.outreach_status === 'new').length;
+
+  const activeFreelancer = freelancers[0];
+  const displayName = user?.name || activeFreelancer?.name || settings.user_name || 'User';
+  const displayEmail = user?.email || settings.user_email || 'freelancer@company.com';
 
   const filteredRegions = searchValue.trim()
     ? REGIONS.filter(
@@ -321,11 +325,11 @@ export function TopNavbar({ onSearch, scanning = false, scanStepText = '' }: Pro
               className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/20 px-2.5 py-1.5 text-left transition-colors hover:bg-slate-800/40"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 text-xs font-bold text-white shadow-inner">
-                {user ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase() : 'JD'}
+                {displayName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div className="hidden flex-col leading-tight sm:flex">
                 <span className="text-xs font-semibold text-white truncate max-w-[80px]">
-                  {user ? user.name.split(' ')[0] : 'Guest'}
+                  {displayName.split(' ')[0]}
                 </span>
                 <span className="text-[9px] font-medium text-slate-400 capitalize">
                   {config.label.split(' ')[0]}
@@ -337,8 +341,8 @@ export function TopNavbar({ onSearch, scanning = false, scanStepText = '' }: Pro
             {userDropdownOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-48 overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
                 <div className="px-3.5 py-2.5 border-b border-slate-800 bg-slate-950/20">
-                  <p className="text-xs font-bold text-white truncate">{user ? user.name : 'Guest User'}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{user ? user.email : 'guest@company.com'}</p>
+                  <p className="text-xs font-bold text-white truncate">{displayName}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{displayEmail}</p>
                 </div>
                 <div className="py-1">
                   <div className="px-3.5 py-2 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">

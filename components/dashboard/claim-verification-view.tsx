@@ -32,7 +32,7 @@ const STEPS: { key: WizardStep; label: string; icon: React.ComponentType<{ class
 ];
 
 export function ClaimVerificationView() {
-  const { leads, verifications } = useApp();
+  const { leads, verifications, claimBusiness } = useApp();
   const unverified = leads.filter((l) => !l.website).slice(0, 6);
 
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -71,8 +71,8 @@ export function ClaimVerificationView() {
     setTimeout(() => {
       setOtpVerifying(false);
       setOtpVerified(true);
-      setTimeout(() => setStep('documents'), 600);
-    }, 1500);
+      setStep('documents');
+    }, 400);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -96,11 +96,14 @@ export function ClaimVerificationView() {
 
   const handleSubmit = () => {
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      setStep('complete');
-      setClaimedBusiness(selectedBusiness);
-    }, 2000);
+    const targetLead = leads.find((l) => l.name === selectedBusiness);
+    claimBusiness(targetLead?.id || null, {
+      name: selectedBusiness || 'My Business',
+      domain: domainName,
+    });
+    setSubmitting(false);
+    setStep('complete');
+    setClaimedBusiness(selectedBusiness);
   };
 
   const handleCloseWizard = () => {

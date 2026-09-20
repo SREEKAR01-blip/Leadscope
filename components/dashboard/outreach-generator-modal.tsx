@@ -93,14 +93,18 @@ export function OutreachGeneratorModal({ lead, onClose }: Props) {
     if (!l.website || !l.website.startsWith('https://')) missingAssets.push('SSL security');
     const missingStr = missingAssets.length > 0 ? missingAssets.join(', ') : 'some digital improvements';
 
+    const ratingPhrase = l.rating != null ? `${l.rating.toFixed(1)} stars` : 'a strong local rating';
+    const reviewsPhrase = l.review_count != null ? `${l.review_count.toLocaleString()} reviews` : 'great customer reviews';
+    const customersCount = l.review_count != null ? `${l.review_count.toLocaleString()}` : 'dozens of';
+
     if (tpl === 'direct') {
       return `Subject: A landing page for ${l.name} — live in 24 hours
 
 Hi ${l.name} Team,
 
-I was searching for top-rated ${l.category.toLowerCase()} businesses in ${l.city} and found you — ${l.rating?.toFixed(1)} stars with ${l.review_count?.toLocaleString()} reviews is impressive.
+I was searching for top-rated ${l.category.toLowerCase()} businesses in ${l.city} and found you — ${ratingPhrase} with ${reviewsPhrase} is impressive.
 
-But I noticed you're missing ${missingStr}. With ${l.review_count?.toLocaleString()} happy customers, you're leaving money on the table every month.
+But I noticed you're missing ${missingStr}. With ${customersCount} happy customers, you're leaving money on the table every month.
 
 I build high-converting landing pages for local businesses. I can have one live for ${l.name} in 24 hours — designed, deployed, and mobile-ready.
 
@@ -123,9 +127,9 @@ Hi ${l.name} Team,
 
 I ran a quick SEO audit on your business and found something concerning.
 
-You have ${l.review_count?.toLocaleString()} reviews and a ${l.rating?.toFixed(1)} rating — but when someone searches "${l.category.toLowerCase()} in ${l.city}", your business doesn't show up on the first page.
+You have ${reviewsPhrase} and ${ratingPhrase} — but when someone searches "${l.category.toLowerCase()} in ${l.city}", your business doesn't show up on the first page.
 
-That means ${Math.round((l.review_count ?? 0) * 0.5).toLocaleString()}+ potential customers every month are finding your competitors instead of you.
+That means ${l.review_count != null ? Math.round(l.review_count * 0.5).toLocaleString() : 'dozens of'}+ potential customers every month are finding your competitors instead of you.
 
 Here's what I found missing:
 ${missingAssets.map((a) => `  - No ${a}`).join('\n')}
@@ -145,7 +149,7 @@ Hi ${l.name} Team,
 
 I did some research on ${l.category.toLowerCase()} businesses in ${l.city} and found something you should know.
 
-${l.name} has ${l.review_count?.toLocaleString()} reviews and a ${l.rating?.toFixed(1)} rating — better than most of your competitors. But they're getting more customers because they show up first on Google Maps and have ${missingStr === 'some digital improvements' ? 'optimized websites' : missingStr}.
+${l.name} has ${reviewsPhrase} and ${ratingPhrase} — better than most of your competitors. But they're getting more customers because they show up first on Google Maps and have ${missingStr === 'some digital improvements' ? 'optimized websites' : missingStr}.
 
 Right now, when someone searches "${l.category.toLowerCase()} near me" in ${l.city}, they find:
   1. A competitor with fewer reviews but a better website
@@ -166,6 +170,9 @@ Jordan`;
   }, []);
 
   const generateFollowUp = useCallback((l: ExtendedLead, tpl: TemplateType, day: 3 | 7): string => {
+    const ratingPhrase = l.rating != null ? `${l.rating.toFixed(1)} rating` : 'strong rating';
+    const reviewsPhrase = l.review_count != null ? `${l.review_count.toLocaleString()} reviews` : 'great reviews';
+
     if (day === 3) {
       return `Subject: Re: Quick follow-up — ${l.name}
 
@@ -173,7 +180,7 @@ Hi ${l.name} Team,
 
 I reached out a couple of days ago about helping ${l.name} with ${!l.website ? 'a website' : 'digital optimization'}.
 
-I know you're busy running a ${l.category.toLowerCase()} business with ${l.review_count?.toLocaleString()} reviews (congrats on the ${l.rating?.toFixed(1)} rating, by the way!), so I'll keep this short.
+I know you're busy running a ${l.category.toLowerCase()} business with ${reviewsPhrase} (congrats on the ${ratingPhrase}, by the way!), so I'll keep this short.
 
 I have a time slot open this week to build a mockup landing page for ${l.name} — free, no strings attached. You see it, you decide if it's worth a conversation.
 
@@ -189,7 +196,7 @@ Hi ${l.name} Team,
 
 This will be my last email for now — I don't want to be a nuisance.
 
-Just wanted to leave you with one thought: every month without a strong digital presence, ${l.name} is losing an estimated ${Math.round((l.review_count ?? 0) * 0.8 * 450).toLocaleString()}+ in potential revenue to competitors who rank higher on Google.
+Just wanted to leave you with one thought: every month without a strong digital presence, ${l.name} is losing potential revenue to competitors who rank higher on Google.
 
 If you ever want to fix that, I'm here. I specialize in helping ${l.category.toLowerCase()} businesses in ${l.city} dominate local search.
 
@@ -200,16 +207,20 @@ Jordan`;
   }, []);
 
   const generateCallScript = useCallback((l: ExtendedLead): string => {
+    const ratingPhrase = l.rating != null ? `${l.rating.toFixed(1)} stars` : 'a strong rating';
+    const reviewsPhrase = l.review_count != null ? `${l.review_count.toLocaleString()} reviews` : 'great customer reviews';
+    const customersCount = l.review_count != null ? `${l.review_count.toLocaleString()}` : 'dozens of';
+
     return `[30-Second Cold Call Script for ${l.name}]
 
 OPENING (5 sec):
 "Hi, is this the owner of ${l.name}? Great — I'll be quick, I know you're running a business."
 
 HOOK (10 sec):
-"I was looking for the best ${l.category.toLowerCase()} in ${l.city} and you came up — ${l.rating?.toFixed(1)} stars, ${l.review_count?.toLocaleString()} reviews. Honestly, you're one of the top-rated spots in the area."
+"I was looking for the best ${l.category.toLowerCase()} in ${l.city} and you came up — ${ratingPhrase}, ${reviewsPhrase}. Honestly, you're one of the top-rated spots in the area."
 
 PROBLEM (8 sec):
-"But I noticed you don't have a website${l.website && !l.website.startsWith('https://') ? ' with SSL security' : ''}. With ${l.review_count?.toLocaleString()} happy customers, you're probably losing customers to competitors who show up first on Google."
+"But I noticed you don't have a website${l.website && !l.website.startsWith('https://') ? ' with SSL security' : ''}. With ${customersCount} happy customers, you're probably losing customers to competitors who show up first on Google."
 
 VALUE (5 sec):
 "I build websites and optimize Google Maps listings for local businesses. I can have a landing page live for you in 24 hours."
@@ -222,16 +233,12 @@ CTA (2 sec):
 [If they say not interested]: "Totally understand. I'll shoot you one email with a free audit report — if it's helpful, great. If not, you won't hear from me again. What's the best email?"
 
 PRIORITY: ${priorityLabel}
-REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero website presence' : 'weak digital presence'} = massive untapped revenue opportunity.`;
+REASON: ${reviewsPhrase} + ${!l.website ? 'zero website presence' : 'weak digital presence'} = massive untapped revenue opportunity.`;
   }, [priorityLabel]);
 
   const handleGenerate = useCallback(() => {
     if (!lead) return;
     setGenerating(true);
-    setEmailBody(null);
-    setFollowupDay3(null);
-    setFollowupDay7(null);
-    setCallScript(null);
 
     setTimeout(() => {
       setEmailBody(generateEmail(lead, template));
@@ -239,7 +246,17 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
       setFollowupDay7(generateFollowUp(lead, template, 7));
       setCallScript(generateCallScript(lead));
       setGenerating(false);
-    }, 1500);
+    }, 400);
+  }, [lead, template, generateEmail, generateFollowUp, generateCallScript]);
+
+  // Auto-generate content on load or lead/template change
+  useMemo(() => {
+    if (lead) {
+      setEmailBody(generateEmail(lead, template));
+      setFollowupDay3(generateFollowUp(lead, template, 3));
+      setFollowupDay7(generateFollowUp(lead, template, 7));
+      setCallScript(generateCallScript(lead));
+    }
   }, [lead, template, generateEmail, generateFollowUp, generateCallScript]);
 
   const handleCopy = useCallback((text: string, field: string) => {
@@ -404,29 +421,54 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
               ) : (
                 <>
                   {/* Email Tab */}
-                  {tab === 'email' && emailBody && (
+                  {tab === 'email' && emailBody !== null && (
                     <div>
                       <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Mail className="h-4 w-4 text-blue-500" />
                           <h3 className="text-sm font-semibold text-slate-800">Cold Email — {TEMPLATE_CONFIG[template].label}</h3>
+                          <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">Editable</span>
                         </div>
-                        <button
-                          onClick={() => handleCopy(emailBody, 'email')}
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
-                        >
-                          {copiedField === 'email' ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                          {copiedField === 'email' ? 'Copied!' : 'Copy'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const lines = emailBody.split('\n');
+                              let subject = '';
+                              let bodyLines = emailBody;
+                              if (lines[0].toLowerCase().startsWith('subject:')) {
+                                subject = lines[0].replace(/^subject:\s*/i, '');
+                                bodyLines = lines.slice(1).join('\n').trim();
+                              }
+                              window.location.href = `mailto:${lead?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyLines)}`;
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-600 shadow-sm"
+                          >
+                            <Mail className="h-3.5 w-3.5" />
+                            Email Owner
+                          </button>
+                          <button
+                            onClick={() => handleCopy(emailBody, 'email')}
+                            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+                          >
+                            {copiedField === 'email' ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                            {copiedField === 'email' ? 'Copied!' : 'Copy'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{emailBody}</pre>
+                      <div className="relative rounded-xl border border-slate-300 bg-slate-50 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                        <textarea
+                          value={emailBody}
+                          onChange={(e) => setEmailBody(e.target.value)}
+                          rows={14}
+                          className="w-full resize-y rounded-xl bg-transparent p-4 font-sans text-sm leading-relaxed text-slate-800 focus:outline-none"
+                          placeholder="Type or customize your cold email pitch here..."
+                        />
                       </div>
                     </div>
                   )}
 
                   {/* Follow-Up Tab */}
-                  {tab === 'followup' && followupDay3 && followupDay7 && (
+                  {tab === 'followup' && followupDay3 !== null && followupDay7 !== null && (
                     <div className="space-y-4">
                       {/* Day 3 */}
                       <div>
@@ -434,6 +476,7 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
                           <div className="flex items-center gap-2">
                             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-xs font-bold text-blue-600">D3</span>
                             <h3 className="text-sm font-semibold text-slate-800">Day 3 Follow-Up</h3>
+                            <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">Editable</span>
                           </div>
                           <button
                             onClick={() => handleCopy(followupDay3, 'day3')}
@@ -443,8 +486,13 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
                             {copiedField === 'day3' ? 'Copied!' : 'Copy'}
                           </button>
                         </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{followupDay3}</pre>
+                        <div className="rounded-xl border border-slate-300 bg-slate-50 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                          <textarea
+                            value={followupDay3}
+                            onChange={(e) => setFollowupDay3(e.target.value)}
+                            rows={8}
+                            className="w-full resize-y rounded-xl bg-transparent p-4 font-sans text-sm leading-relaxed text-slate-800 focus:outline-none"
+                          />
                         </div>
                       </div>
 
@@ -454,6 +502,7 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
                           <div className="flex items-center gap-2">
                             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-xs font-bold text-amber-600">D7</span>
                             <h3 className="text-sm font-semibold text-slate-800">Day 7 Follow-Up (Break-Up)</h3>
+                            <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">Editable</span>
                           </div>
                           <button
                             onClick={() => handleCopy(followupDay7, 'day7')}
@@ -463,20 +512,26 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
                             {copiedField === 'day7' ? 'Copied!' : 'Copy'}
                           </button>
                         </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{followupDay7}</pre>
+                        <div className="rounded-xl border border-slate-300 bg-slate-50 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                          <textarea
+                            value={followupDay7}
+                            onChange={(e) => setFollowupDay7(e.target.value)}
+                            rows={8}
+                            className="w-full resize-y rounded-xl bg-transparent p-4 font-sans text-sm leading-relaxed text-slate-800 focus:outline-none"
+                          />
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* Call Script Tab */}
-                  {tab === 'call' && callScript && (
+                  {tab === 'call' && callScript !== null && (
                     <div>
                       <div className="mb-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <PhoneCall className="h-4 w-4 text-blue-500" />
                           <h3 className="text-sm font-semibold text-slate-800">30-Second Cold Call Script</h3>
+                          <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">Editable</span>
                         </div>
                         <button
                           onClick={() => handleCopy(callScript, 'call')}
@@ -486,8 +541,13 @@ REASON: ${l.review_count?.toLocaleString()} reviews + ${!l.website ? 'zero websi
                           {copiedField === 'call' ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                        <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">{callScript}</pre>
+                      <div className="rounded-xl border border-slate-300 bg-slate-50 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
+                        <textarea
+                          value={callScript}
+                          onChange={(e) => setCallScript(e.target.value)}
+                          rows={12}
+                          className="w-full resize-y rounded-xl bg-transparent p-4 font-sans text-sm leading-relaxed text-slate-800 focus:outline-none"
+                        />
                       </div>
                       {/* Timing breakdown */}
                       <div className="mt-3 grid grid-cols-4 gap-2">

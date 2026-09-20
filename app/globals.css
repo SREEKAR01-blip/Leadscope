@@ -51,6 +51,39 @@
 
     --radius: 0.625rem;
   }
+
+  .dark {
+    /* Surfaces — rich midnight slate theme */
+    --background: 222 47% 9%;          /* #0b1329 */
+    --background-secondary: 222 47% 6%; /* #070d1e */
+    --foreground: 210 40% 98%;          /* #f8fafc */
+
+    --card: 222 47% 13%;                /* #151e36 */
+    --card-foreground: 210 40% 98%;     /* #f8fafc */
+    --card-hover: 222 47% 18%;          /* #1e293b */
+
+    --popover: 222 47% 13%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Brand */
+    --primary: 221 83% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 32% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 32% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 199 89% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --border: 217 32% 20%;
+    --input: 217 32% 20%;
+    --ring: 221 83% 60%;
+
+    color-scheme: dark;
+  }
 }
 
 @layer base {
@@ -64,6 +97,175 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* Comprehensive Dark Mode overrides to ensure seamless appearance across all components */
+.dark body {
+  background-color: #0b1329 !important;
+  color: #f8fafc !important;
+}
+
+.dark .bg-white {
+  background-color: #151e36 !important;
+}
+
+.dark .bg-slate-50 {
+  background-color: #0b1329 !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1a2442 !important;
+}
+
+.dark .bg-slate-200 {
+  background-color: #27355b !important;
+}
+
+.dark .bg-slate-300 {
+  background-color: #3b4d7a !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #0b1329 !important;
+}
+
+.dark .bg-gray-100 {
+  background-color: #1a2442 !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-gray-900,
+.dark .text-gray-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-gray-700,
+.dark .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500,
+.dark .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-400,
+.dark .text-gray-400 {
+  color: #64748b !important;
+}
+
+.dark .border-slate-200,
+.dark .border-slate-100,
+.dark .border-gray-200,
+.dark .border-gray-100 {
+  border-color: #27355b !important;
+}
+
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #27355b !important;
+}
+
+/* Badge & Soft Container Color Overrides in Dark Mode */
+.dark .bg-blue-50,
+.dark .bg-blue-50\/50 {
+  background-color: rgba(30, 58, 138, 0.4) !important;
+}
+
+.dark .bg-blue-100 {
+  background-color: rgba(30, 58, 138, 0.6) !important;
+}
+
+.dark .bg-green-50 {
+  background-color: rgba(20, 83, 45, 0.4) !important;
+}
+
+.dark .bg-green-100 {
+  background-color: rgba(20, 83, 45, 0.6) !important;
+}
+
+.dark .bg-amber-50 {
+  background-color: rgba(120, 53, 15, 0.4) !important;
+}
+
+.dark .bg-amber-100 {
+  background-color: rgba(120, 53, 15, 0.6) !important;
+}
+
+.dark .bg-red-50 {
+  background-color: rgba(127, 29, 29, 0.4) !important;
+}
+
+.dark .bg-red-100 {
+  background-color: rgba(127, 29, 29, 0.6) !important;
+}
+
+.dark .bg-purple-50 {
+  background-color: rgba(88, 28, 135, 0.4) !important;
+}
+
+.dark .bg-purple-100 {
+  background-color: rgba(88, 28, 135, 0.6) !important;
+}
+
+/* Text Badges in Dark Mode */
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+.dark .text-green-600,
+.dark .text-green-700 {
+  color: #4ade80 !important;
+}
+
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800 {
+  color: #fbbf24 !important;
+}
+
+.dark .text-red-600,
+.dark .text-red-700 {
+  color: #f87171 !important;
+}
+
+.dark .text-purple-600,
+.dark .text-purple-700 {
+  color: #c084fc !important;
+}
+
+/* Input / Select / Textarea Overrides */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #0b1329 !important;
+  color: #f8fafc !important;
+  border-color: #27355b !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+/* Dark Mode Leaflet Map Styling */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(1.2);
+}
+
+.dark .leaflet-container {
+  background-color: #0b1329 !important;
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background-color: #151e36 !important;
+  color: #f8fafc !important;
 }
 
 @layer utilities {

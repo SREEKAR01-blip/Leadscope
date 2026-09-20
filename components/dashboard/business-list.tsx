@@ -24,12 +24,22 @@ export function BusinessList({ leads, selectedId, onSelect, onViewProfile, onGen
   const [sort, setSort] = useState<SortKey>('score');
 
   const filtered = leads
-    .filter(
-      (l) =>
-        (l.name || '').toLowerCase().includes(query.toLowerCase()) ||
-        (l.category || '').toLowerCase().includes(query.toLowerCase()) ||
-        (l.city || '').toLowerCase().includes(query.toLowerCase())
-    )
+    .filter((l) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+
+      // Extract search tokens, omitting common prepositions
+      const tokens = q
+        .split(/\s+/)
+        .filter((word) => !['in', 'at', 'near', 'by', 'and', 'the', 'or', 'for', 'of', 'a', 'an'].includes(word));
+
+      if (tokens.length === 0) return true;
+
+      const searchableText = `${l.name || ''} ${l.category || ''} ${l.city || ''} ${l.address || ''}`.toLowerCase();
+      
+      // Keep item if at least one search token is matched
+      return tokens.some((token) => searchableText.includes(token));
+    })
     .sort((a, b) => {
       if (sort === 'score') return b.digital_score - a.digital_score;
       if (sort === 'rating') return (b.rating ?? 0) - (a.rating ?? 0);
@@ -39,7 +49,9 @@ export function BusinessList({ leads, selectedId, onSelect, onViewProfile, onGen
   const handleLocalSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim() && onSearch) {
-      onSearch(query.trim());
+      const targetQuery = query.trim();
+      onSearch(targetQuery);
+      setQuery(''); // Clear filter text so fresh server search results display in full
     }
   };
 
@@ -213,16 +225,28 @@ export function BusinessList({ leads, selectedId, onSelect, onViewProfile, onGen
                       {/* Contact row */}
                       <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-500">
                         {lead.phone && (
-                          <span className="flex items-center gap-1">
+                          <a
+                            href={`tel:${lead.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 hover:text-blue-600 hover:underline"
+                          >
                             <Phone className="h-3 w-3" />
                             {lead.phone}
-                          </span>
+                          </a>
                         )}
                         {lead.website && (
-                          <span className="flex items-center gap-1">
+                          <a
+                            href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-blue-600 font-medium hover:underline"
+                          >
                             <Globe className="h-3 w-3" />
-                            <span className="truncate">Website</span>
-                          </span>
+                            <span className="truncate max-w-[120px]">
+                              {lead.website.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]}
+                            </span>
+                          </a>
                         )}
                         {lead.review_count != null && (
                           <span>{lead.review_count} reviews</span>

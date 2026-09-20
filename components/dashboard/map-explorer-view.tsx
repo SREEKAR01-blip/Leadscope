@@ -8,7 +8,6 @@ import {
   Plus,
   Minus,
   Crosshair,
-  Search,
   SlidersHorizontal,
   Star,
   Globe,
@@ -63,7 +62,6 @@ const DEFAULT_FILTERS: Filters = {
 
 export function MapExplorerView() {
   const { leads, searchedLocation } = useApp();
-  const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [auditLead, setAuditLead] = useState<ExtendedLead | null>(null);
   const [pitchLead, setPitchLead] = useState<ExtendedLead | null>(null);
@@ -94,16 +92,6 @@ export function MapExplorerView() {
 
   const filteredPoints = useMemo(() => {
     return points.filter(({ lead }) => {
-      // Text search
-      if (query) {
-        const q = query.toLowerCase();
-        if (
-          !lead.name.toLowerCase().includes(q) &&
-          !lead.category.toLowerCase().includes(q) &&
-          !lead.city.toLowerCase().includes(q) &&
-          !lead.address.toLowerCase().includes(q)
-        ) return false;
-      }
       // City filter
       if (filters.city !== 'all' && lead.city !== filters.city) return false;
       // Category filter
@@ -118,7 +106,7 @@ export function MapExplorerView() {
       if (lead.digital_score < filters.minScore) return false;
       return true;
     });
-  }, [points, query, filters]);
+  }, [points, filters]);
 
   const selectedLead = selectedId ? leads.find((l) => l.id === selectedId) : null;
 
@@ -156,17 +144,8 @@ export function MapExplorerView() {
           </div>
         </div>
 
-        {/* Floating search */}
+        {/* Filters button */}
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search city, area, category, or business..."
-              className="w-80 rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-            />
-          </div>
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={cn(

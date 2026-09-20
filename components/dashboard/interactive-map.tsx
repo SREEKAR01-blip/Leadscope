@@ -93,9 +93,10 @@ export default function InteractiveMap({ leads, selectedId, onSelect, searchedLo
       };
     }
 
-    // CartoDB Voyager Layer (resembles the Google Maps pastel design)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Free OpenStreetMap Standard Layer (No API key required)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     }).addTo(map);
 
     // Zoom Controls Placement

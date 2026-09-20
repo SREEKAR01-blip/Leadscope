@@ -1,6 +1,11 @@
 import type { Lead } from './supabase';
 
 export type RegionKey = 
+  | 'kompally'
+  | 'maisammaguda'
+  | 'gachibowli'
+  | 'kukatpally'
+  | 'madhapur'
   | 'jubilee-hills' 
   | 'hyderabad' 
   | 'mumbai' 
@@ -22,6 +27,46 @@ export type RegionMeta = {
 };
 
 export const REGIONS: RegionMeta[] = [
+  {
+    key: 'kompally',
+    label: 'Kompally',
+    city: 'Hyderabad',
+    centerLat: 17.5366,
+    centerLng: 78.4844,
+    businesses: [],
+  },
+  {
+    key: 'maisammaguda',
+    label: 'Maisammaguda',
+    city: 'Hyderabad',
+    centerLat: 17.5631,
+    centerLng: 78.4553,
+    businesses: [],
+  },
+  {
+    key: 'gachibowli',
+    label: 'Gachibowli',
+    city: 'Hyderabad',
+    centerLat: 17.4401,
+    centerLng: 78.3489,
+    businesses: [],
+  },
+  {
+    key: 'kukatpally',
+    label: 'Kukatpally',
+    city: 'Hyderabad',
+    centerLat: 17.4947,
+    centerLng: 78.3996,
+    businesses: [],
+  },
+  {
+    key: 'madhapur',
+    label: 'Madhapur',
+    city: 'Hyderabad',
+    centerLat: 17.4483,
+    centerLng: 78.3915,
+    businesses: [],
+  },
   {
     key: 'jubilee-hills',
     label: 'Jubilee Hills',
@@ -113,8 +158,7 @@ export function findRegion(query: string): RegionMeta | null {
       q.includes(r.label.toLowerCase()) ||
       q.includes(r.city.toLowerCase()) ||
       q.includes(r.key.toLowerCase()) ||
-      r.label.toLowerCase().includes(q) ||
-      r.city.toLowerCase().includes(q)
+      r.label.toLowerCase().includes(q)
   );
   
   return found ?? null;
